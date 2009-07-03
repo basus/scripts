@@ -21,62 +21,70 @@ def format_authors(auth):
     return formatted
 
 
+#### Constants ####
 note_names = glob.glob('notes/*')
-pdf_names = glob.glob('papers/*')
+papers = glob.glob('papers/*')
+
+paper_path = 'papers/'
+note_path = 'notes/'
+
+paper_ext = '.pdf'
+note_ext = '.org'
+
+cite_file = 'papers/citations.bib'
+
 details = 'y'
-print note_names
+
+header = '* '
+bullet = '  + '
+
 paper_names = []
 
-for fl in pdf_names:
-    if fl[-3:] == 'pdf':
-        print fl
-        paper_names.append(fl.replace('.pdf','').replace('papers/', ''))
+for fl in papers:
+    if not fl.find(paper_ext) == -1:
+        paper_names.append(fl.replace(paper_ext,'').replace(paper_path, ''))
 
 parser = bibtex.Parser()
-bib_data = parser.parse_file('papers/citations.bib')
+bib_data = parser.parse_file(cite_file)
 
-wiki = open('wiki', 'w')
+summary = open('summary', 'w')
 
 for paper in paper_names:
+    paper_data = bib_data.entries[paper]
     try:
-        title = bib_data.entries[paper].fields['title']
-        link = './papers/' + paper + '.pdf'
-        entry = '* ' + '[[' + link + '][' + title +']]'
+        title = paper_data.fields['title']
+        link = paper_path + paper + paper_ext
+        entry = header + '[[./' + link + '][' + title +']]'
         try:
-            note_index = note_names.index('notes/' + paper + '.org')
+            note_index = note_names.index(note_path + paper + note_ext)
             note = '[[./' + note_names[note_index] + '][Notes]]'
-            wiki.write(entry)
-            wiki.write(' -> ')
-            wiki.write(note)
-            wiki.write('\n')            
+            summary.write(entry)
+            summary.write(' -> ')
+            summary.write(note + '\n')
         except Exception as err:
             print "No note found for", err
-            wiki.write(entry)
-            wiki.write('\n')
+            summary.write(entry + '\n')
 
         if details == 'y':
-            authors = bib_data.entries[paper].fields['author']
+            authors = paper_data.fields['author']
             authors = format_authors(authors)
-            authors = '   + ' + ' and '.join(authors)
+            authors = bullet + ' and '.join(authors)
 
             try:
-                published = '   + ' + bib_data.entries[paper].fields['journal']
+                published = bullet + paper_data.fields['journal']
             except:
-                published = '   + ' + bib_data.entries[paper].fields['booktitle']
+                published = bullet + paper_data.fields['booktitle']
 
-            year = '   + ' + bib_data.entries[paper].fields['year']
+            year = bullet + paper_data.fields['year']
             
-            wiki.write(authors)
-            wiki.write('\n')
-            wiki.write(published)
-            wiki.write('\n')
-            wiki.write(year)
-            wiki.write('\n')
+            summary.write(authors + '\n')
+            summary.write(published + '\n')
+            summary.write(year + '\n')
             
     except Exception as err:
         print "An error occured while processing: ", paper
         print err
 
-wiki.close()
+summary.close()
 
 
