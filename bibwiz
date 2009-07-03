@@ -1,0 +1,132 @@
+#!/usr/bin/python
+
+from pybtex.database.input import bibtex
+
+#filename = raw_input('Enter bibtex filename: ')
+
+
+class BibWizard:
+
+    def __init__(self, bibdata):
+        self.bibdata = bibdata
+        self.tags = {}
+        self.grouptags = {}
+        self.authors = {}
+        self.years = {}
+
+    def extract_tags(self):
+        for key, entry in self.bibdata.entries.iteritems():
+            keywords = entry.fields["keywords"]
+            keywords = keywords.split(',')
+
+            for keyword in keywords:
+                if keyword not in self.tags:
+                    self.tags[keyword] = [entry]
+                else:
+                    self.tags[keyword].append(entry)
+
+                if keyword[0] == '#' or keyword[:2] == '\#':
+                    grouptag = keyword.split()[0].lstrip('\#')
+                    tag = keyword.split()[1:]
+                    tag = ' '.join(tag)
+                    
+                    try:
+                        entry.fields[grouptag].append(tag)
+                    except:
+                        entry.fields[grouptag] = [tag]
+                        
+                    if grouptag not in self.grouptags:
+                        self.grouptags[grouptag] = {}
+                    if tag not in self.grouptags[grouptag]:
+                        self.grouptags[grouptag][tag] = [entry]
+                    else:
+                        self.grouptags[grouptag][tag].append(entry)
+                        
+    def extract_authors(self):
+        for key, entry in self.bibdata.entries.iteritems():
+            authorcount = 0
+            for author in entry.persons['author']:
+                try:
+                    self.authors[unicode(author)].append(entry)
+                except:
+                    self.authors[unicode(author)] = [entry]
+
+    def extract_years(self):
+        for key, entry in self.bibdata.entries.iteritems():
+            try:
+                self.years[entry.fields['year']].append(entry)
+            except:
+                self.years[entry.fields['year']] = [entry]
+
+    def extract_all(self):
+        self.extract_tags()
+        self.extract_authors()
+        self.extract_years()
+
+    def get_authors(self, key, num=None):
+        entry = self.bibdata.entries[key]
+        authors = entry.fields['author']
+        if num == None:
+            return authors
+        authors = authors.split(' and ')
+        auth = []
+        for index in range(num):
+            try:
+                auth.append(authors[index])
+            except IndexError:
+                auth.append('')
+        auth.append(' and '.join(authors[num:]))
+        return auth
+        
+    # def entries_by_field(self, field):
+    #     for key, entry in self.bibdata.entries.iteritems():
+    
+    def print_by_authors(self):
+        for author, entries in self.authors.iteritems():
+            print '\n\n'
+            print author
+            for entry in entries:
+                print entry.fields['title']
+
+    def print_by_grouptags(self):
+        print "Now printing group tags"
+        for grouptag, tags in self.grouptags.iteritems():
+            print '\n\n'
+            print "### ", grouptag
+            print tags.keys()
+
+            for tag, entries in tags.iteritems():
+                print "\n# ", tag
+                for entry in entries:
+                    print entry.fields['title']
+
+
+filename = 'items.bib'
+parser = bibtex.Parser()
+bibdata = parser.parse_file(filename)
+bibwiz = BibWizard(bibdata)
+bibwiz.extract_all()
+
+sheet = open('sheet.csv', 'w')
+columns = ['Title', 'Year', '1st Author', '2nd Author', 'Others', 'Language', 'Analyses']
+sheet.write('|'.join(columns))
+sheet.write('\n')
+
+for key,entry in bibwiz.bibdata.entries.iteritems():
+    title = entry.fields['title']
+    year = entry.fields['year']
+    author = '|'.join(bibwiz.get_authors(key,2))
+    try:
+        lang = ' '.join(entry.fields['language'])
+    except:
+        lang = ''
+    try:
+        analysis = ' '.join(entry.fields['analysis'])
+    except:
+        analysis = ''
+    row = [title, year, author, lang, analysis]
+
+    sheet.write('|'.join(row))
+    sheet.write('\n')
+
+sheet.close()
